@@ -1,8 +1,24 @@
-const Room = require('../models/Room');
+// const Room = require('../models/Room');
+
+// // @desc Create a new room
+// // const Room = require('../models/Room');
+// const util = require('util'); // <-- Add this at the top
 
 // @desc Create a new room
+const Room = require('../models/Room');
+
 exports.createRoom = async (req, res) => {
   try {
+    console.log('=== Incoming req.body ===');
+    console.dir(req.body, { depth: null, colors: true });
+
+    console.log('=== Incoming req.files ===');
+    console.dir(req.files, { depth: null, colors: true });
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No images uploaded' });
+    }
+
     const {
       name,
       pricePerNight,
@@ -10,35 +26,42 @@ exports.createRoom = async (req, res) => {
       description,
       maxNumberOfAdults,
       roomNumber,
+      typeOfBed,
       isAvailable,
     } = req.body;
 
-    // Convert comma-separated features to array if needed
     const featuresArray = typeof features === 'string'
       ? features.split(',').map(f => f.trim())
       : features;
 
-    // Extract image file paths
-    const images = req.files ? req.files.map(file => file.path) : [];
-
     const room = new Room({
       name,
-      pricePerNight,
-      images,
+      pricePerNight: Number(pricePerNight),
+      images: req.files.map(file => file.path || file.secure_url),
       features: featuresArray,
       description,
-      maxNumberOfAdults,
+      maxNumberOfAdults: Number(maxNumberOfAdults),
       roomNumber,
-      isAvailable,
+      typeOfBed,
+      isAvailable: isAvailable === 'true' || isAvailable === true,
     });
 
     const savedRoom = await room.save();
     res.status(201).json(savedRoom);
+
   } catch (error) {
-    console.error('Create room error:', error);
-    res.status(500).json({ message: 'Server error while creating room' });
+    console.error('=== Create room error ===');
+    console.dir(error, { depth: null, colors: true });
+
+    res.status(500).json({
+      message: error.message || 'Server error while creating room',
+      stack: error.stack,
+    });
   }
 };
+
+
+
 
 // @desc Get all rooms
 exports.getAllRooms = async (req, res) => {

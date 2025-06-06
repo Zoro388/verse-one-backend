@@ -30,6 +30,9 @@ const roomSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  typeOfBed: {
+    type: String,
+  },
   isAvailable: {
     type: Boolean,
     default: true,

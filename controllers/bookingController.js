@@ -1,42 +1,33 @@
-const Booking = require('../models/Booking');
+const PDFDocument = require('pdfkit');
+const nodemailer = require('nodemailer');
 const Room = require('../models/Room');
 const User = require('../models/User');
-const nodemailer = require('nodemailer');
-
-const calculateNights = (checkIn, checkOut) => {
-  const oneDay = 24 * 60 * 60 * 1000;
-  const diffDays = Math.round((checkOut - checkIn) / oneDay);
-  return diffDays > 0 ? diffDays : 0;
-};
-
-// Admin: Get all bookings
-exports.getAllBookings = async (req, res) => {
-  try {
-    const bookings = await Booking.find().populate('roomId').sort({ createdAt: -1 });
-    res.status(200).json(bookings);
-  } catch (error) {
-    console.error('Error fetching bookings:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// User: Get bookings by the authenticated user
-exports.getUserBookings = async (req, res) => {
-  try {
-    const userId = req.user._id; // Use user from token, not params
-    const bookings = await Booking.find({ userId }).populate('roomId').sort({ createdAt: -1 });
-    res.status(200).json(bookings);
-  } catch (error) {
-    console.error('Error fetching user bookings:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+const Booking = require('../models/Booking');
 
 exports.createBooking = async (req, res) => {
   try {
-    const { userId, roomId, checkIn, checkOut, maxNumberOfAdults, userEmail, name } = req.body;
+    const {
+      userId,
+      roomId,
+      checkIn,
+      checkOut,
+      maxNumberOfAdults,
+      userEmail,
+      name,
+      paymentStatus,
+      totalPrice,
+    } = req.body;
 
-    if (!roomId || !checkIn || !checkOut || !maxNumberOfAdults || !userEmail || !name) {
+    if (
+      !roomId ||
+      !checkIn ||
+      !checkOut ||
+      !maxNumberOfAdults ||
+      !userEmail ||
+      !name ||
+      !paymentStatus ||
+      totalPrice == null
+    ) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -48,20 +39,12 @@ exports.createBooking = async (req, res) => {
     }
 
     const room = await Room.findById(roomId);
-    if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
-    }
+    if (!room) return res.status(404).json({ message: 'Room not found' });
 
-    const nights = calculateNights(checkInDate, checkOutDate);
-    const totalPrice = nights * room.pricePerNight;
-
-    // Fetch user firstname if userId provided, else fallback to client name
     let userFirstName = name;
     if (userId) {
       const user = await User.findById(userId);
-      if (user && user.firstName) {
-        userFirstName = user.firstName;
-      }
+      if (user?.firstName) userFirstName = user.firstName;
     }
 
     const booking = new Booking({
@@ -70,15 +53,71 @@ exports.createBooking = async (req, res) => {
       checkIn: checkInDate,
       checkOut: checkOutDate,
       maxNumberOfAdults,
-      totalPrice,
-      status: 'pending',
       userEmail,
       name,
+      paymentStatus,
+      totalPrice,
     });
 
     await booking.save();
 
-    // Setup email transporter
+    const naira = (amount) => `₦${Number(amount).toLocaleString('en-NG')}`;
+
+    const dataFields = [
+      ['Name', name],
+      ['Email', userEmail],
+      ['Room', room.name],
+      ['Check-In', checkInDate.toDateString()],
+      ['Check-Out', checkOutDate.toDateString()],
+      ['Adults', maxNumberOfAdults],
+      ['Payment Status', paymentStatus],
+      ['Total Price', naira(totalPrice)],
+    ];
+
+    const generatePDF = () => {
+      return new Promise((resolve, reject) => {
+        const doc = new PDFDocument({ margin: 50 });
+        const buffers = [];
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+
+        doc.fontSize(20).text('Your Hotel Name', { align: 'center' }).moveDown(0.5);
+        doc.fontSize(16).text('Booking Receipt', { align: 'center' }).moveDown(1);
+        doc.fontSize(10).text(`Receipt No: ${booking._id}`, { align: 'center' }).moveDown(2);
+
+        const tableTop = doc.y;
+        const cellPadding = 5;
+        const colWidths = [150, 300];
+
+        for (let i = 0; i < dataFields.length; i++) {
+          const row = dataFields[i];
+          const y = tableTop + i * 25;
+
+          doc.rect(50, y, colWidths[0], 25).stroke();
+          doc.rect(50 + colWidths[0], y, colWidths[1], 25).stroke();
+
+          doc.font('Helvetica-Bold').fontSize(10).text(row[0], 55, y + cellPadding, {
+            width: colWidths[0] - 2 * cellPadding,
+          });
+
+          doc.font('Helvetica').fontSize(10).text(row[1], 55 + colWidths[0], y + cellPadding, {
+            width: colWidths[1] - 2 * cellPadding,
+          });
+        }
+
+        doc.moveDown(3);
+        doc.fontSize(12).text('Scan for more info', { align: 'center' });
+        doc.rect(220, doc.y + 10, 150, 50).stroke();
+        doc.text('[Barcode]', 245, doc.y + 25);
+
+        doc.moveDown(3).fontSize(12).fillColor('#333').text('Thank you for choosing Your Hotel.', { align: 'center' });
+
+        doc.end();
+      });
+    };
+
+    const pdfBuffer = await generatePDF();
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -87,114 +126,89 @@ exports.createBooking = async (req, res) => {
       },
     });
 
-    // User email HTML with personalized greeting
-    const userEmailHTML = `
-      <div style="font-family: Arial, sans-serif; color: #333;">
-        <h2 style="color: #4a90e2;">Booking Confirmation</h2>
-        <p>Dear ${userFirstName},</p>
-        <p>Thank you for your booking. Here are your booking details:</p>
-        <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
-          <tr style="background-color: #4a90e2; color: white;">
-            <th style="padding: 8px; text-align: left;">Field</th>
-            <th style="padding: 8px; text-align: left;">Details</th>
-          </tr>
-          <tr style="background-color: #f0f8ff;">
-            <td style="padding: 8px;">Room Name</td>
-            <td style="padding: 8px;">${room.name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f0f8ff;">Check-In Date</td>
-            <td style="padding: 8px; background-color: #f0f8ff;">${checkInDate.toDateString()}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f0f8ff;">Check-Out Date</td>
-            <td style="padding: 8px; background-color: #f0f8ff;">${checkOutDate.toDateString()}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f0f8ff;">Number of Adults</td>
-            <td style="padding: 8px; background-color: #f0f8ff;">${maxNumberOfAdults}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f0f8ff;">Total Price</td>
-            <td style="padding: 8px; background-color: #f0f8ff;">$${totalPrice.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f0f8ff;">Status</td>
-            <td style="padding: 8px; background-color: #f0f8ff;">${booking.status}</td>
-          </tr>
-        </table>
-        <p style="margin-top: 20px;">We look forward to hosting you!</p>
-        <p>Best Regards,<br/>Your Hotel Team</p>
-      </div>
-    `;
+    const generateEmailHTML = (receiverName, isAdmin = false) => {
+      const headingColor = isAdmin ? '#e74c3c' : '#2E86C1';
+      const greeting = isAdmin ? 'Hello Admin,' : `Dear <strong>${receiverName}</strong>,`;
+      const note = isAdmin ? 'The following booking was just made:' : 'Thank you for booking with us! Your booking details are below:';
 
-    // Admin email HTML with "HELLO ADMIN" greeting + client details
-    const adminEmailHTML = `
-      <div style="font-family: Arial, sans-serif; color: #333;">
-        <h2 style="color: #e94e1b;">HELLO ADMIN</h2>
-        <p>A new booking has been made with the following details:</p>
-        <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
-          <tr style="background-color: #e94e1b; color: white;">
-            <th style="padding: 8px; text-align: left;">Field</th>
-            <th style="padding: 8px; text-align: left;">Details</th>
-          </tr>
-          <tr style="background-color: #f8d7da;">
-            <td style="padding: 8px;">Client Name</td>
-            <td style="padding: 8px;">${name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f8d7da;">Client Email</td>
-            <td style="padding: 8px; background-color: #f8d7da;">${userEmail}</td>
-          </tr>
-          <tr style="background-color: #f8d7da;">
-            <td style="padding: 8px;">Room Name</td>
-            <td style="padding: 8px;">${room.name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f8d7da;">Check-In Date</td>
-            <td style="padding: 8px; background-color: #f8d7da;">${checkInDate.toDateString()}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f8d7da;">Check-Out Date</td>
-            <td style="padding: 8px; background-color: #f8d7da;">${checkOutDate.toDateString()}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f8d7da;">Number of Adults</td>
-            <td style="padding: 8px; background-color: #f8d7da;">${maxNumberOfAdults}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f8d7da;">Total Price</td>
-            <td style="padding: 8px;">$${totalPrice.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; background-color: #f8d7da;">Status</td>
-            <td style="padding: 8px; background-color: #f8d7da;">${booking.status}</td>
-          </tr>
-        </table>
-      </div>
-    `;
+      return `
+        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f2f4f8;">
+          <h2 style="color: ${headingColor};">Booking Confirmation</h2>
+          <p>${greeting}</p>
+          <p>${note}</p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <tr style="background-color: #e6f2ff;">
+              <th style="text-align: left; padding: 8px; border: 1px solid #ccc;">Field</th>
+              <th style="text-align: left; padding: 8px; border: 1px solid #ccc;">Details</th>
+            </tr>
+            ${dataFields.map(([field, detail]) => `
+              <tr>
+                <td style="padding: 8px; border: 1px solid #ccc;">${field}</td>
+                <td style="padding: 8px; border: 1px solid #ccc;">${detail}</td>
+              </tr>
+            `).join('')}
+          </table>
+          <p style="margin-top: 20px;">${isAdmin ? 'Receipt is attached.' : 'We look forward to hosting you!'}</p>
+          <p>Best regards,<br/>Your Hotel Team</p>
+        </div>
+      `;
+    };
 
-    try {
-      await transporter.sendMail({
-        from: `"Your Hotel" <${process.env.EMAIL_USER}>`,
-        to: userEmail,
-        subject: 'Booking Confirmation',
-        html: userEmailHTML,
-      });
+    await transporter.sendMail({
+      from: `"Your Hotel" <${process.env.EMAIL_USER}>`,
+      to: userEmail,
+      subject: 'Booking Confirmation',
+      html: generateEmailHTML(userFirstName),
+      attachments: [
+        {
+          filename: 'booking-summary.pdf',
+          content: pdfBuffer,
+        },
+      ],
+    });
 
-      await transporter.sendMail({
-        from: `"Your Hotel" <${process.env.EMAIL_USER}>`,
-        to: process.env.ADMIN_EMAIL,
-        subject: 'New Booking Alert',
-        html: adminEmailHTML,
-      });
-    } catch (emailError) {
-      console.error('Email sending error:', emailError);
-    }
+    await transporter.sendMail({
+      from: `"Your Hotel" <${process.env.EMAIL_USER}>`,
+      to: process.env.ADMIN_EMAIL,
+      subject: 'New Booking Alert',
+      html: generateEmailHTML('Admin', true),
+      attachments: [
+        {
+          filename: 'booking-summary.pdf',
+          content: pdfBuffer,
+        },
+      ],
+    });
 
     res.status(201).json({ message: 'Booking created and confirmation emails sent', booking });
   } catch (error) {
     console.error('Booking creation error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate('roomId')
+      .populate('userId')
+      .sort({ createdAt: -1 });
+    res.status(200).json(bookings);
+  } catch (error) {
+    console.error('Get all bookings error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.getUserBookings = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const bookings = await Booking.find({ userId })
+      .populate('roomId')
+      .sort({ createdAt: -1 });
+    res.status(200).json(bookings);
+  } catch (error) {
+    console.error('Get user bookings error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
