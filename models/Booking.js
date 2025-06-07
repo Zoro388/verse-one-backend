@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 const bookingSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',           // Optional link to user
+    ref: 'User',
     required: false,
   },
   roomId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Room',           // Which room is booked
+    ref: 'Room',
     required: true,
   },
   checkIn: {
@@ -36,7 +36,6 @@ const bookingSchema = new mongoose.Schema({
   paymentStatus: {
     type: String,
     enum: ['pay-at-hotel', 'paid'],
-    // default: '',
     required: true,
   },
   userEmail: {
@@ -45,10 +44,18 @@ const bookingSchema = new mongoose.Schema({
     lowercase: true,
     trim: true,
   },
-  name: {
+  firstName: {
     type: String,
-    required: true,     // Client's name from frontend form
+    required: true,
   },
+  lastName: {
+    type: String,
+    required: false,
+  },
+  message: {
+    type: String,
+    required: false,
+  }
 }, {
   timestamps: true,
 });

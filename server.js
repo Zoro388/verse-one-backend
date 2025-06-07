@@ -5,6 +5,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const roomRoutes = require('./routes/roomRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 const cors = require('cors');
 
 dotenv.config();
@@ -25,6 +26,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/contact', contactRoutes);
+
 
 // Global error handling middleware — place after all routes
 app.use((err, req, res, next) => {

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User'); // Needed to fetch full user info
 
-// Protect middleware: Verifies token and attaches full user object to req.user
+// Middleware to protect routes - verifies token and attaches user to req.user
 const protect = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
 
@@ -11,10 +11,12 @@ const protect = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Get full user info from DB, excluding password
+
+    // Fetch full user data, exclude password
     const user = await User.findById(decoded.id).select('-password');
-    if (!user) return res.status(401).json({ message: 'User not found' });
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
 
     req.user = user;
     next();
@@ -24,10 +26,10 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Role-based access control middleware
+// Middleware to allow access only to specific roles
 const allowRoles = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ message: 'Access denied: Insufficient role' });
     }
     next();

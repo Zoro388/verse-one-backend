@@ -7,13 +7,13 @@ const {
 } = require('../controllers/bookingController');
 const { protect, allowRoles } = require('../middlewares/authMiddleware');
 
-// Public route for booking creation
+// Public route - Create a new booking (you can add protect if needed)
 router.post('/', createBooking);
 
-// Admin: Get all bookings
+// Admin route - Get all bookings
 router.get('/', protect, allowRoles('admin'), getAllBookings);
 
-// User: Get bookings by their own userId (from token)
+// User route - Get bookings for logged-in user
 router.get('/my-bookings', protect, getUserBookings);
 
 module.exports = router;
