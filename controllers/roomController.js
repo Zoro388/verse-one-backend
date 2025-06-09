@@ -86,7 +86,9 @@ exports.getRoomById = async (req, res) => {
   }
 };
 
-// @desc Update room
+// const Room = require('../models/Room'); // ensure Room is imported
+
+// @desc Update room (partial update)
 exports.updateRoom = async (req, res) => {
   try {
     const {
@@ -99,38 +101,48 @@ exports.updateRoom = async (req, res) => {
       isAvailable,
     } = req.body;
 
-    // Convert comma-separated features to array if needed
-    const featuresArray = typeof features === 'string'
-      ? features.split(',').map(f => f.trim())
-      : features;
-
-    // Extract image file paths if uploaded
-    const images = req.files ? req.files.map(file => file.path) : undefined;
-
-    const updateData = {
-      name,
-      pricePerNight,
-      features: featuresArray,
-      description,
-      maxNumberOfAdults,
-      roomNumber,
-      isAvailable,
-    };
-
-    if (images !== undefined) {
-      updateData.images = images;
+    // Parse features if it's a string
+    let featuresArray;
+    if (features) {
+      featuresArray = typeof features === 'string'
+        ? features.split(',').map(f => f.trim())
+        : features;
     }
 
-    const updatedRoom = await Room.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    // Handle image uploads if any
+    const images = req.files ? req.files.map(file => file.path) : undefined;
 
-    if (!updatedRoom) return res.status(404).json({ message: 'Room not found' });
+    // Construct update object with only provided fields
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (pricePerNight !== undefined) updateData.pricePerNight = pricePerNight;
+    if (featuresArray !== undefined) updateData.features = featuresArray;
+    if (description !== undefined) updateData.description = description;
+    if (maxNumberOfAdults !== undefined) updateData.maxNumberOfAdults = maxNumberOfAdults;
+    if (roomNumber !== undefined) updateData.roomNumber = roomNumber;
+    if (isAvailable !== undefined) updateData.isAvailable = isAvailable;
+    if (images !== undefined) updateData.images = images;
 
-    res.json(updatedRoom);
+    const updatedRoom = await Room.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedRoom) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    res.status(200).json({
+      message: 'Room updated successfully',
+      room: updatedRoom,
+    });
   } catch (error) {
     console.error('Update room error:', error);
     res.status(500).json({ message: 'Server error while updating room' });
   }
 };
+
 
 // @desc Delete room
 exports.deleteRoom = async (req, res) => {
