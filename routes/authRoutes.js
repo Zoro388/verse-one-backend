@@ -1,15 +1,30 @@
 const express = require('express');
-const { register, login, forgotPassword, resetPassword } = require('../controllers/authController');
-
 const router = express.Router();
+const {
+  register,
+  verifyEmail,
+  login,
+  forgotPassword,
+  resetPassword,
+  status,
+  logout,
+  getAllUsers,
+} = require('../controllers/authController');
 
+const { protect, allowRoles } = require('../middlewares/authMiddleware');
+
+// Public routes
 router.post('/register', register);
+router.get('/verify-email/:token', verifyEmail);
 router.post('/login', login);
-
-// Forgot password: User submits their email to get a reset link
 router.post('/forgot-password', forgotPassword);
-
-// Reset password: User resets password with token from email link
 router.post('/reset-password/:token', resetPassword);
+
+// Protected routes
+router.get('/status', protect, status);
+router.post('/logout', protect, logout);
+
+// Admin-only route
+router.get('/users', protect, allowRoles('admin'), getAllUsers);
 
 module.exports = router;
