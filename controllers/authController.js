@@ -121,15 +121,19 @@ exports.forgotPassword = async (req, res) => {
     const resetToken = user.generatePasswordResetToken();
     await user.save();
 
-    const resetURL = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
+    // Use frontend URL for email reset link
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetURL = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
 
     await sendEmail({
       to: user.email,
       subject: 'Password Reset',
       text: `Click the link to reset your password: ${resetURL}`,
-      html: `<p>Click the button below to reset your password:</p>
-             <a href="${resetURL}" style="padding:10px 20px; background:#28a745; color:#fff; text-decoration:none;">Reset Password</a>
-             <p>This link will expire in 15 minutes.</p>`,
+      html: `
+        <p>Click the button below to reset your password:</p>
+        <a href="${resetURL}" style="padding:10px 20px; background:#28a745; color:#fff; text-decoration:none;">Reset Password</a>
+        <p>This link will expire in 15 minutes.</p>
+      `,
     });
 
     res.status(200).json({ message: 'Reset link sent to email' });
@@ -138,6 +142,7 @@ exports.forgotPassword = async (req, res) => {
     res.status(500).json({ message: 'Failed to send reset email' });
   }
 };
+
 
 // Reset Password
 exports.resetPassword = async (req, res) => {
