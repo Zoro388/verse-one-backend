@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const generateToken = require('../utils/generateToken');
 const sendEmail = require('../utils/sendEmail');
 
+// ==============================
 // Register
 exports.register = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
@@ -21,12 +22,11 @@ exports.register = async (req, res) => {
       firstName,
       lastName: lastName || '',
       email,
-      password, // Will be hashed in the model
+      password,
       role: 'user',
       isVerified: false,
     });
 
-    // Email verification token
     const verificationToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: '1d',
     });
@@ -50,6 +50,7 @@ exports.register = async (req, res) => {
   }
 };
 
+// ==============================
 // Verify Email
 exports.verifyEmail = async (req, res) => {
   const { token } = req.params;
@@ -71,6 +72,7 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
+// ==============================
 // Login
 exports.login = async (req, res) => {
   const { email, password } = req.body;
@@ -82,15 +84,10 @@ exports.login = async (req, res) => {
   try {
     const user = await User.findOne({ email: email.toLowerCase() });
 
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
+    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
+    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
     if (!user.isVerified) {
       return res.status(401).json({ message: 'Please verify your email before logging in' });
@@ -100,6 +97,7 @@ exports.login = async (req, res) => {
       id: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
+      email: user.email,
       role: user.role,
       token: generateToken(user._id, user.role),
     });
@@ -109,6 +107,7 @@ exports.login = async (req, res) => {
   }
 };
 
+// ==============================
 // Forgot Password
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
@@ -121,7 +120,6 @@ exports.forgotPassword = async (req, res) => {
     const resetToken = user.generatePasswordResetToken();
     await user.save();
 
-    // Use frontend URL for email reset link
     const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetURL = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
 
@@ -129,11 +127,9 @@ exports.forgotPassword = async (req, res) => {
       to: user.email,
       subject: 'Password Reset',
       text: `Click the link to reset your password: ${resetURL}`,
-      html: `
-        <p>Click the button below to reset your password:</p>
+      html: `<p>Click the button below to reset your password:</p>
         <a href="${resetURL}" style="padding:10px 20px; background:#28a745; color:#fff; text-decoration:none;">Reset Password</a>
-        <p>This link will expire in 15 minutes.</p>
-      `,
+        <p>This link will expire in 15 minutes.</p>`,
     });
 
     res.status(200).json({ message: 'Reset link sent to email' });
@@ -143,13 +139,14 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-
+// ==============================
 // Reset Password
 exports.resetPassword = async (req, res) => {
-  const { token } = req.params;
-  const { password } = req.body;
+  const { token, password } = req.body;
 
-  if (!password) return res.status(400).json({ message: 'New password is required' });
+  if (!token || !password) {
+    return res.status(400).json({ message: 'Token and new password are required' });
+  }
 
   try {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
@@ -174,7 +171,8 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// Status - Check if token is valid
+// ==============================
+// Status
 exports.status = async (req, res) => {
   const user = req.user;
   res.status(200).json({
@@ -188,14 +186,14 @@ exports.status = async (req, res) => {
   });
 };
 
-// Logout - (Client should discard token; server just responds)
+// ==============================
+// Logout
 exports.logout = async (req, res) => {
   res.status(200).json({ message: 'Logout successful' });
 };
 
-// @desc   Get all users
-// @route  GET /api/auth/users
-// @access Admin only
+// ==============================
+// Get all users
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find().select('-password -resetPasswordToken -resetPasswordExpires');
@@ -205,4 +203,67 @@ exports.getAllUsers = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// ==============================
+// Change Password
+exports.changePassword = async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ message: 'Both old and new passwords are required' });
+  }
+
+  try {
+    const user = await User.findById(req.user.id).select('+password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Old password is incorrect' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ==============================
+// UPDATE PROFILE
+exports.updateProfile = async (req, res) => {
+  const { firstName, lastName } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Only update the fields provided
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+
+    await user.save();
+
+    res.status(200).json({
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 

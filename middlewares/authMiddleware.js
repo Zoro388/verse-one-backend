@@ -3,6 +3,8 @@ const User = require('../models/User'); // Needed to fetch full user info
 
 // Middleware to protect routes - verifies token and attaches user to req.user
 const protect = async (req, res, next) => {
+  // console.log('Authorization Header:', req.headers.authorization);
+
   const token = req.headers.authorization?.split(' ')[1];
 
   if (!token) {

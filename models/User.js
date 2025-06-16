@@ -48,9 +48,14 @@ userSchema.pre('save', async function(next) {
   next();
 });
 
-// Password match method for login
+// Password match method (for login)
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// ✅ Add this comparePassword method (for password change)
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Generate and set password reset token
