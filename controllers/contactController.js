@@ -39,7 +39,7 @@ exports.createContact = async (req, res) => {
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="font-weight: bold; padding: 8px; border: 1px solid #ddd;">Full Name</td>
-                <td style="padding: 8px; border: 1px solid #ddd;">${fullName}</td>
+                <td style="padding: 7px; border: 1px solid #ddd;">${fullName}</td>
               </tr>
               <tr>
                 <td style="font-weight: bold; padding: 8px; border: 1px solid #ddd;">Email</td>
