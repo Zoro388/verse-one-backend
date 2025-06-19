@@ -43,7 +43,7 @@ exports.register = async (req, res) => {
       expiresIn: '1d',
     });
 
-    const verifyURL = `${process.env.SERVER_URL}/${`omo`}/api/auth/verify-email/${verificationToken}`;
+    const verifyURL = `http://verse-one-backend.onrender.com/api/auth/verify-email/${verificationToken}`;
 
     
 
