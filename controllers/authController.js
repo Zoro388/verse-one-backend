@@ -1,4 +1,7 @@
-require('dotenv').config();
+const dotenv = require('dotenv');
+dotenv.config();
+
+
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -32,12 +35,15 @@ exports.register = async (req, res) => {
       isVerified: false,
     });
 
+
+
+
     // ✅ Use environment-based backend URL to avoid undefined in frontend
     const verificationToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: '1d',
     });
 
-    const verifyURL = `${process.env.SERVER_URL}/api/auth/verify-email/${verificationToken}`;
+    const verifyURL = `${process.env.SERVER_URL}/${`omo`}/api/auth/verify-email/${verificationToken}`;
 
     
 
@@ -137,6 +143,8 @@ exports.verifyEmail = async (req, res) => {
 
 console.log( process.env.SERVER_URL);
     console.log("hello world")
+
+    console.log(process.env.SERVER_URL)
 
 // ==============================
 // Login
