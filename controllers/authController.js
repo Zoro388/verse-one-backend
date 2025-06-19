@@ -1,3 +1,4 @@
+require('dotenv').config();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -37,6 +38,9 @@ exports.register = async (req, res) => {
     });
 
     const verifyURL = `${process.env.SERVER_URL}/api/auth/verify-email/${verificationToken}`;
+
+    
+
 
     // ✅ Send styled verification email
     await sendEmail({
@@ -131,7 +135,8 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-
+console.log( process.env.SERVER_URL);
+    console.log("hello world")
 
 // ==============================
 // Login
