@@ -73,7 +73,7 @@ const generateEmailHTML = (receiverName, dataFields, isAdmin = false) => {
         `).join('')}
       </table>
       <p style="margin-top: 20px;">${isAdmin ? 'Receipt is attached.' : 'We look forward to hosting you!'}</p>
-      <p>Best regards,<br/>Your Hotel Team</p>
+      <p>Best regards,<br/>VERSE ONE HOTEL</p>
     </div>
   `;
 };
@@ -172,7 +172,7 @@ exports.createBooking = async (req, res) => {
 
     // Send confirmation email to user
     await transporter.sendMail({
-      from: `"Your Hotel" <${process.env.EMAIL_USER}>`,
+      from: `"VERSE ONE HOTEL" <${process.env.EMAIL_USER}>`,
       to: userEmail,
       subject: 'Booking Confirmation',
       html: generateEmailHTML(userFirstName, dataFields),
@@ -185,18 +185,21 @@ exports.createBooking = async (req, res) => {
     });
 
     // Send notification email to admin
-    await transporter.sendMail({
-      from: `"Your Hotel" <${process.env.EMAIL_USER}>`,
-      to: process.env.ADMIN_EMAIL,
-      subject: 'New Booking Alert',
-      html: generateEmailHTML('Admin', dataFields, true),
-      attachments: [
-        {
-          filename: 'booking-summary.pdf',
-          content: pdfBuffer,
-        },
-      ],
-    });
+  const sendEmail = require('../utils/sendEmail');
+const html = generateEmailHTML('Admin', dataFields, true);
+
+await sendEmail({
+  to: process.env.ADMIN_EMAIL,
+  subject: 'New Booking Alert - Verse One Hotel',
+  html,
+  attachments: [
+    {
+      filename: 'booking-summary.pdf',
+      content: pdfBuffer,
+    },
+  ],
+});
+
 
     return res.status(201).json({ message: 'Booking created and confirmation emails sent', booking });
   } catch (error) {

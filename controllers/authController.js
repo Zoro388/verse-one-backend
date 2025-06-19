@@ -31,14 +31,21 @@ exports.register = async (req, res) => {
       expiresIn: '1d',
     });
 
-    const verifyURL = `${req.protocol}://${req.get('host')}/api/auth/verify-email/${verificationToken}`;
+    const verifyURL = `${process.env.SERVER_URL}/api/auth/verify-email/${verificationToken}`;
 
     await sendEmail({
       to: user.email,
-      subject: 'Verify your email',
-      text: `Please verify your account by clicking the link: ${verifyURL}`,
-      html: `<p>Click below to verify your email:</p>
-             <a href="${verifyURL}" style="padding:10px 20px; background:#007bff; color:#fff; text-decoration:none;">Verify Email</a>`,
+      subject: 'Verify Your Email - Verse One Hotel',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 30px; background-color: #f8f9fa; border-radius: 8px; text-align: center;">
+          <h2 style="color: #059669;">Welcome to Verse One Hotel</h2>
+          <p style="font-size: 16px; color: #333;">Please click the button below to verify your email and activate your account:</p>
+          <a href="${verifyURL}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #059669; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            ✅ Verify Email
+          </a>
+          <p style="margin-top: 30px; font-size: 14px; color: #555;">If you didn’t sign up, you can safely ignore this email.</p>
+        </div>
+      `,
     });
 
     res.status(201).json({
@@ -50,8 +57,14 @@ exports.register = async (req, res) => {
   }
 };
 
+
+
 // ==============================
-// Verify Email
+// VERIFY EMAIL
+
+// const jwt = require('jsonwebtoken');
+// const User = require('../models/User');
+
 exports.verifyEmail = async (req, res) => {
   const { token } = req.params;
 
@@ -59,18 +72,58 @@ exports.verifyEmail = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
 
-    if (!user) return res.status(400).json({ message: 'Invalid verification token' });
-    if (user.isVerified) return res.status(400).json({ message: 'Email already verified' });
+    if (!user) {
+      return res.status(400).send(`
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+          <h2 style="color: red;">❌ Invalid Token</h2>
+          <p>This verification link is invalid or has expired.</p>
+        </div>
+      `);
+    }
+
+    if (user.isVerified) {
+      return res.send(`
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 60px;">
+          <h2 style="color: #059669;">✅ Email Already Verified</h2>
+          <p>Hello <strong>${user.firstName}</strong>, your email is already verified.</p>
+          <a href="https://verseonehotel.netlify.app/auth"
+             style="display: inline-block; margin-top: 20px; padding: 12px 24px;
+                    background-color: #059669; color: #fff; text-decoration: none;
+                    border-radius: 6px; font-weight: bold;">
+            Go to Login
+          </a>
+        </div>
+      `);
+    }
 
     user.isVerified = true;
     await user.save();
 
-    res.status(200).json({ message: 'Email verified successfully' });
+    return res.send(`
+      <div style="font-family: Arial, sans-serif; text-align: center; padding: 60px;">
+        <h2 style="color: #059669;">✅ Email Verified Successfully</h2>
+        <p>Hello <strong>${user.firstName}</strong>, your email has been verified.</p>
+        <p>You can now log in to your account.</p>
+        <a href="https://verseonehotel.netlify.app/auth"
+           style="display: inline-block; margin-top: 20px; padding: 12px 24px;
+                  background-color: #059669; color: #fff; text-decoration: none;
+                  border-radius: 6px; font-weight: bold;">
+          Go to Login
+        </a>
+      </div>
+    `);
   } catch (error) {
     console.error('Email verification error:', error);
-    res.status(400).json({ message: 'Invalid or expired verification token' });
+    return res.status(400).send(`
+      <div style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+        <h2 style="color: red;">❌ Invalid or Expired Token</h2>
+        <p>Please request a new verification link or contact support.</p>
+      </div>
+    `);
   }
 };
+
+
 
 // ==============================
 // Login
@@ -120,7 +173,7 @@ exports.forgotPassword = async (req, res) => {
     const resetToken = user.generatePasswordResetToken();
     await user.save();
 
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const FRONTEND_URL = process.env.FRONTEND_URL;
     const resetURL = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
 
     await sendEmail({

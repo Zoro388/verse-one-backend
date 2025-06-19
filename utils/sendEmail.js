@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-const sendEmail = async ({ to, subject, text }) => {
+const sendEmail = async ({ to, subject, html, attachments }) => {
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -11,10 +11,11 @@ const sendEmail = async ({ to, subject, text }) => {
     });
 
     const mailOptions = {
-      from: `"Hotel Booking" <${process.env.EMAIL_USER}>`,
+      from: `"Verse One Hotel" <${process.env.EMAIL_USER}>`,
       to,
       subject,
-      text, // Use plain text instead of HTML
+      html,
+      attachments: attachments || [], // PDF or other files
     };
 
     await transporter.sendMail(mailOptions);
