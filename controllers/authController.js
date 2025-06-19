@@ -7,6 +7,8 @@ const sendEmail = require('../utils/sendEmail');
 
 // ==============================
 // Register
+
+
 exports.register = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
 
@@ -16,7 +18,9 @@ exports.register = async (req, res) => {
 
   try {
     const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: 'User already exists' });
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
     const user = await User.create({
       firstName,
@@ -27,24 +31,26 @@ exports.register = async (req, res) => {
       isVerified: false,
     });
 
+    // ✅ Use environment-based backend URL to avoid undefined in frontend
     const verificationToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: '1d',
     });
 
-    // ✅ Use SERVER_URL from .env
     const verifyURL = `${process.env.SERVER_URL}/api/auth/verify-email/${verificationToken}`;
 
-    // Send verification email
+    // ✅ Send styled verification email
     await sendEmail({
       to: user.email,
       subject: 'Verify Your Email - Verse One Hotel',
-      text: `Click the link to verify your email: ${verifyURL}`,
+      text: `Please verify your account by visiting: ${verifyURL}`,
       html: `
-        <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px;">
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 40px;">
           <h2 style="color: #059669;">Welcome to Verse One Hotel</h2>
-          <p>Hello <strong>${firstName}</strong>,</p>
-          <p>Click the button below to verify your email and complete your registration.</p>
-          <a href="${verifyURL}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #059669; color: #fff; text-decoration: none; border-radius: 5px;">Verify Email</a>
+          <p>Hi <strong>${firstName}</strong>,</p>
+          <p>Thank you for registering. Please verify your email to activate your account.</p>
+          <a href="${verifyURL}" style="margin-top: 25px; display: inline-block; padding: 12px 28px; background-color: #059669; color: #fff; text-decoration: none; border-radius: 6px; font-size: 16px;">
+            Verify My Email
+          </a>
         </div>
       `,
     });
