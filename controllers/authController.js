@@ -31,19 +31,20 @@ exports.register = async (req, res) => {
       expiresIn: '1d',
     });
 
+    // ✅ Use SERVER_URL from .env
     const verifyURL = `${process.env.SERVER_URL}/api/auth/verify-email/${verificationToken}`;
 
+    // Send verification email
     await sendEmail({
       to: user.email,
       subject: 'Verify Your Email - Verse One Hotel',
+      text: `Click the link to verify your email: ${verifyURL}`,
       html: `
-        <div style="font-family: Arial, sans-serif; padding: 30px; background-color: #f8f9fa; border-radius: 8px; text-align: center;">
+        <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px;">
           <h2 style="color: #059669;">Welcome to Verse One Hotel</h2>
-          <p style="font-size: 16px; color: #333;">Please click the button below to verify your email and activate your account:</p>
-          <a href="${verifyURL}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #059669; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold;">
-            ✅ Verify Email
-          </a>
-          <p style="margin-top: 30px; font-size: 14px; color: #555;">If you didn’t sign up, you can safely ignore this email.</p>
+          <p>Hello <strong>${firstName}</strong>,</p>
+          <p>Click the button below to verify your email and complete your registration.</p>
+          <a href="${verifyURL}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #059669; color: #fff; text-decoration: none; border-radius: 5px;">Verify Email</a>
         </div>
       `,
     });
@@ -56,6 +57,7 @@ exports.register = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 
 
