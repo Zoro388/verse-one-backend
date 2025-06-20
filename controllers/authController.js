@@ -35,17 +35,16 @@ exports.register = async (req, res) => {
       isVerified: false,
     });
 
-
-
-
     // ✅ Use environment-based backend URL to avoid undefined in frontend
     const verificationToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: '1d',
     });
 
-    const verifyURL = `http://verse-one-backend.onrender.com/api/auth/verify-email/${verificationToken}`;
+    // const verifyURL = `${process.env.SERVER_URL}/${`omo`}/api/auth/verify-email/${verificationToken}`;
 
-    
+    // SERVER_URL
+
+        const verifyURL = `http://verse-one-backend.onrender.com}/api/auth/verify-email/${verificationToken}`;
 
 
     // ✅ Send styled verification email

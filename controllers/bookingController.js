@@ -187,9 +187,8 @@ exports.createBooking = async (req, res) => {
     // Send notification email to admin
   const sendEmail = require('../utils/sendEmail');
 const html = generateEmailHTML('Admin', dataFields, true);
-
 await sendEmail({
-  to: process.env.ADMIN_EMAIL,
+  to: 'adeniranquwam001@gmail.com',
   subject: 'New Booking Alert - Verse One Hotel',
   html,
   attachments: [
@@ -200,7 +199,7 @@ await sendEmail({
   ],
 });
 
-
+// process.env.ADMIN_EMAIL
     return res.status(201).json({ message: 'Booking created and confirmation emails sent', booking });
   } catch (error) {
     console.error('Booking creation error:', error);
