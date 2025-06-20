@@ -188,6 +188,7 @@ exports.createBooking = async (req, res) => {
   const sendEmail = require('../utils/sendEmail');
 const html = generateEmailHTML('Admin', dataFields, true);
 await sendEmail({
+  from: `"VERSE ONE HOTEL" <${process.env.EMAIL_USER}>`,
   to: 'adeniranquwam001@gmail.com',
   subject: 'New Booking Alert - Verse One Hotel',
   html,
